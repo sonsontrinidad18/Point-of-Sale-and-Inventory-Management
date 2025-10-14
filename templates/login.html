@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Login</title>
+<link rel="stylesheet" href="/static/style.css"/></head><body>
+<header class="header"><div class="bar container"><div><strong>Software Design Project</strong></div></div></header>
+<div class="container"><div class="panel">
+  <h2>Sign in</h2>
+  <p>Demo users: <code>admin/admin123</code>, <code>buyer/buyer123</code></p>
+  <div style="display:grid;gap:8px;max-width:360px">
+    <input id="u" placeholder="Username"/>
+    <input id="p" type="password" placeholder="Password"/>
+    <button class="btn" onclick="login()">Login</button>
+    <div id="msg"></div>
+  </div>
+</div></div>
+<script>
+async function login(){
+  const res = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username:document.getElementById('u').value, password:document.getElementById('p').value})});
+  const data = await res.json();
+  if(res.ok){ localStorage.setItem('token', data.access_token); localStorage.setItem('role', data.role); location.href='/inventory'; }
+  else{ document.getElementById('msg').innerText = data.detail || 'Login failed'; }
+}
+</script>
+</body></html>

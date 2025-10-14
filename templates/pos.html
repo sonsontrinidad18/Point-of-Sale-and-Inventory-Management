@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><title>POS</title><link rel="stylesheet" href="/static/style.css"/></head><body>
+<header class="header"><div class="bar container">
+  <div><strong>POS</strong></div><nav><a href="/inventory">Inventory</a> | <a href="/reports">Reports</a> | <a href="/">Logout</a></nav>
+</div></header>
+<div class="container"><div class="grid">
+  <div class="panel">
+    <h3>Products</h3>
+    <div style="display:flex; gap:8px; margin-bottom:8px"><select id="store" onchange="load()"></select><input id="q" placeholder="Search…" oninput="renderProducts()"/></div>
+    <div id="plist"></div>
+  </div>
+  <div class="panel">
+    <h3>Cart</h3>
+    <div id="cart"></div>
+    <div style="margin-top:8px"><button class="btn" onclick="checkout()">Checkout</button> <span style="margin-left:12px">Total ₱<span id="total">0.00</span></span></div>
+    <div id="msg" style="margin-top:8px"></div>
+  </div>
+</div></div>
+<script>
+let products=[], cart={}, storeId=null;
+function token(){ return localStorage.getItem('token'); }
+async function api(path){ const r = await fetch(path,{headers:{'Authorization':'Bearer '+token()}}); if(r.status==401){ location.href='/'; return; } return r; }
+async function loadStores(){
+  const r = await api('/api/stores'); const data = await r.json();
+  const sel = document.getElementById('store'); sel.innerHTML=''; data.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.text=s.name;sel.appendChild(o);});
+  storeId = data[0]?.id; sel.value=storeId;
+}
+async function load(){ storeId=document.getElementById('store').value; const r=await api('/api/inventory?store_id='+storeId); products=await r.json(); renderProducts(); renderCart(); }
+function renderProducts(){
+  const q=document.getElementById('q').value.toLowerCase(); const root=document.getElementById('plist'); root.innerHTML='';
+  products.filter(p=>p.name.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q)).forEach(p=>{
+    const div=document.createElement('div'); div.className='row';
+    div.innerHTML = `<div><strong>${p.name}</strong><div class='badge'>${p.sku}</div></div><div>₱${p.price.toFixed(2)} | Stock: ${p.qty} <button class='btn' ${p.qty<=0?'disabled':''} onclick='add(${p.product_id})'>Add</button></div>`;
+    root.appendChild(div);
+  });
+}
+function add(id){ cart[id]=(cart[id]||0)+1; renderCart(); }
+function change(id,d){ cart[id]=Math.max(1,(cart[id]||1)+d); renderCart(); }
+function removeItem(id){ delete cart[id]; renderCart(); }
+function renderCart(){
+  const root=document.getElementById('cart'); root.innerHTML=''; let total=0;
+  Object.entries(cart).forEach(([pid,qty])=>{ const p=products.find(x=>x.product_id==pid); if(!p) return; total+=p.price*qty; const row=document.createElement('div'); row.className='row';
+    row.innerHTML=`<div>${p.name}</div><div><button class='btn' onclick='change(${pid},-1)'>-</button><span style='margin:0 8px'>${qty}</span><button class='btn' onclick='change(${pid},1)'>+</button><button class='btn' onclick='removeItem(${pid})'>Remove</button></div>`; root.appendChild(row); });
+  document.getElementById('total').innerText = total.toFixed(2);
+}
+async function checkout(){
+  const items = Object.entries(cart).map(([pid,qty])=>({product_id:Number(pid), qty:qty}));
+  if(items.length==0) return;
+  const r = await fetch('/api/checkout',{method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token()}, body: JSON.stringify({store_id:Number(storeId), items})});
+  const data = await r.json(); document.getElementById('msg').innerText = r.ok? `Sale #${data.id} - Total ₱${data.total.toFixed(2)}` : (data.detail||'Error');
+  cart={}; await load();
+}
+(async()=>{ if(!token()){location.href='/'; return;} await loadStores(); await load(); })();
+</script>
+</body></html>

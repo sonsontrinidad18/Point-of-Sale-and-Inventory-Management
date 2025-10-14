@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Inventory</title><link rel="stylesheet" href="/static/style.css"/></head><body>
+<header class="header"><div class="bar container"><div><strong>Inventory</strong></div><nav><a href="/pos">POS</a> | <a href="/reports">Reports</a> | <a href="/">Logout</a></nav></div></header>
+<div class="container">
+  <div class="kpis"><div class="card"><div>Total SKUs</div><div id="k_skus" style="font-size:24px;font-weight:800">0</div></div>
+  <div class="card"><div>Total Units</div><div id="k_units" style="font-size:24px;font-weight:800">0</div></div>
+  <div class="card"><div>Low Stock (&le;5)</div><div id="k_low" style="font-size:24px;font-weight:800">0</div></div></div>
+  <div class="panel" style="display:flex; gap:8px; align-items:center"><select id="store" onchange="load()"></select><input id="q" placeholder="Search…" oninput="render()"/><a id="export" class="btn" href="#">Export CSV</a></div>
+  <div class="panel"><table class="table"><thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Qty</th><th>Status</th></tr></thead><tbody id="body"></tbody></table></div>
+</div>
+<script>
+function token(){ return localStorage.getItem('token'); }
+async function api(path){ const r = await fetch(path,{headers:{'Authorization':'Bearer '+token()}}); if(r.status==401){ location.href='/'; return; } return r; }
+let products=[], storeId=null;
+async function loadStores(){ const r = await api('/api/stores'); const data = await r.json(); const sel=document.getElementById('store'); sel.innerHTML=''; data.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.text=s.name;sel.appendChild(o);}); storeId=data[0]?.id; sel.value=storeId; }
+async function load(){ storeId=document.getElementById('store').value; const r = await api('/api/inventory?store_id='+storeId); products = await r.json(); document.getElementById('export').href='/api/export/inventory.csv?store_id='+storeId; updateKpis(); render(); }
+function updateKpis(){ document.getElementById('k_skus').innerText=products.length; document.getElementById('k_units').innerText=products.reduce((a,b)=>a+b.qty,0); document.getElementById('k_low').innerText=products.filter(p=>p.qty<=5).length; }
+function badge(q){ if(q<=0) return 'Out'; if(q<=5) return 'Low'; return 'OK'; }
+function render(){ const q=document.getElementById('q').value.toLowerCase(); const rows=products.filter(p=>p.name.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q)).map(p=>`<tr><td>${p.sku}</td><td>${p.name}</td><td>₱${p.price.toFixed(2)}</td><td>${p.qty}</td><td>${badge(p.qty)}</td></tr>`).join(''); document.getElementById('body').innerHTML=rows; }
+(async()=>{ if(!token()){location.href='/'; return;} await loadStores(); await load(); })();
+</script>
+</body></html>

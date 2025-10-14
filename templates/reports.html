@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Reports</title><link rel="stylesheet" href="/static/style.css"/></head><body>
+<header class="header"><div class="bar container"><div><strong>Reports</strong></div><nav><a href="/pos">POS</a> | <a href="/inventory">Inventory</a> | <a href="/">Logout</a></nav></div></header>
+<div class="container"><div class="panel" style="display:grid; gap:8px; max-width:520px">
+  <label>Store</label><select id="store"></select>
+  <label>Date From (YYYY-MM-DD)</label><input id="df" placeholder="2025-01-01"/>
+  <label>Date To (YYYY-MM-DD)</label><input id="dt" placeholder="2025-12-31"/>
+  <button class="btn" onclick="run()">Run Report</button></div>
+  <div class="panel" id="out">Run a report to see totals and top items.</div></div>
+<script>
+function token(){ return localStorage.getItem('token'); }
+async function api(path){ const r = await fetch(path,{headers:{'Authorization':'Bearer '+token()}}); if(r.status==401){ location.href='/'; return; } return r; }
+async function loadStores(){ const r = await api('/api/stores'); const data = await r.json(); const sel=document.getElementById('store'); sel.innerHTML=''; data.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.text=s.name;sel.appendChild(o);}); }
+async function run(){ const store=document.getElementById('store').value; const df=document.getElementById('df').value||''; const dt=document.getElementById('dt').value||''; const r = await api(`/api/report/sales?store_id=${store}&date_from=${df}&date_to=${dt}`); const data = await r.json(); const top=(data.top||[]).map(t=>`<li>Product ID ${t.product_id} — ${t.qty} units</li>`).join(''); document.getElementById('out').innerHTML=`<h3>Total Sales: ₱${(data.total||0).toFixed(2)}</h3><h4>Top Items</h4><ul>${top||'<li>No data</li>'}</ul>`; }
+(async()=>{ if(!token()){location.href='/'; return;} await loadStores(); })();
+</script>
+</body></html>
